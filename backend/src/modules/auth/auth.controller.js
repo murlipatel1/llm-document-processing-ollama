@@ -1,4 +1,4 @@
-import { loginUser, registerUser } from "./auth.service.js";
+import { loginUser, registerUser, revokeRefreshToken } from "./auth.service.js";
 
 export async function registerHandler(request, reply) {
   const result = await registerUser(this, request.body);
@@ -28,4 +28,20 @@ export async function refreshHandler(request, reply) {
   );
 
   return reply.send({ accessToken, refreshToken });
+}
+
+export async function logoutHandler(request, reply) {
+  const { refreshToken } = request.body;
+  const userId = request.user?.sub;
+
+  if (!userId) {
+    return reply.status(401).send({ message: "Unauthorized" });
+  }
+
+  const revoked = await revokeRefreshToken(this, refreshToken, userId);
+  if (!revoked) {
+    return reply.status(400).send({ message: "Invalid refresh token" });
+  }
+
+  return reply.status(204).send();
 }

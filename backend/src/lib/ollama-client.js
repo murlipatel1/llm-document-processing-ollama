@@ -35,6 +35,47 @@ export async function ollamaGenerate(prompt) {
   }
 }
 
+export async function ollamaStream(prompt, onToken) {
+  const model = env.OLLAMA_CHAT_MODEL;
+
+  try {
+    const response = await fetch(`${env.OLLAMA_BASE_URL}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model, prompt, stream: true })
+    });
+
+    if (!response.ok || !response.body) {
+      const text = await response.text();
+      throw new Error(formatOllamaError(new Error(text), model));
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let fullText = "";
+
+    for await (const chunk of response.body) {
+      buffer += decoder.decode(chunk, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const payload = JSON.parse(line);
+        const token = payload.response || "";
+        if (token) {
+          fullText += token;
+          onToken(token);
+        }
+      }
+    }
+
+    return fullText;
+  } catch (error) {
+    throw new Error(formatOllamaError(error, model));
+  }
+}
+
 export async function ollamaEmbed(text) {
   const model = env.OLLAMA_EMBED_MODEL;
   if (!text) return [];

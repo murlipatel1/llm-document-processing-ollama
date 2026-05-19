@@ -1,5 +1,5 @@
 type Props = {
-  sources: string[];
+  sources: Array<string | { filename?: string; score?: number }>;
 };
 
 export default function SourceCitations({ sources }: Props) {
@@ -10,7 +10,11 @@ export default function SourceCitations({ sources }: Props) {
       <summary>Sources</summary>
       <ul>
         {sources.map((source) => (
-          <li key={source}>{source}</li>
+          <li key={typeof source === "string" ? source : `${source.filename || "source"}-${source.score || 0}`}>
+            {typeof source === "string"
+              ? source
+              : `${source.filename || "Unknown file"}${source.score ? ` (score ${source.score.toFixed(3)})` : ""}`}
+          </li>
         ))}
       </ul>
     </details>

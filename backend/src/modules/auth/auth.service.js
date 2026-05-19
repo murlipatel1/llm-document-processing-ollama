@@ -67,6 +67,21 @@ export async function issueTokens(fastify, user) {
   return { accessToken, refreshToken };
 }
 
+export async function revokeRefreshToken(fastify, refreshToken, userId) {
+  const token = await fastify.prisma.refreshToken.findUnique({
+    where: { token: refreshToken }
+  });
+
+  if (!token) return false;
+  if (token.userId !== userId) return false;
+
+  await fastify.prisma.refreshToken.delete({
+    where: { token: refreshToken }
+  });
+
+  return true;
+}
+
 function sanitizeUser(user) {
   return {
     id: user.id,

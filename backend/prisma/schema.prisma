@@ -14,6 +14,8 @@ model Tenant {
   users     User[]
   documents Document[]
   auditLogs AuditLog[]
+  conversations ChatConversation[]
+  chatMessages  ChatMessage[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
@@ -27,6 +29,8 @@ model User {
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   auditLogs     AuditLog[]
   refreshTokens RefreshToken[]
+  conversations ChatConversation[]
+  chatMessages  ChatMessage[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -86,4 +90,42 @@ model AuditLog {
 
   @@index([tenantId])
   @@index([createdAt(sort: Desc)])
+}
+
+model ChatConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  title     String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([tenantId])
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  userId         String
+  tenantId       String
+  role           ChatRole
+  content        String
+  sources        Json?
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
 }

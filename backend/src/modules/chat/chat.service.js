@@ -1,19 +1,26 @@
 import { createEmbedding } from "../processor/embedder.js";
 import { searchInQdrant } from "../search/qdrant.client.js";
 
-export async function createChatAnswer(fastify, tenantId, question) {
+function normalizeSources(hits) {
+  return hits.map((hit) => ({
+    documentId: hit.documentId,
+    filename: hit.filename,
+    score: hit.score
+  }));
+}
+
+async function buildRagPrompt(fastify, tenantId, question) {
   let context = "";
-  let sources = [];
+  let hits = [];
 
   try {
     const vector = await createEmbedding(fastify, question);
-    const hits = await searchInQdrant(tenantId, vector, 5);
+    hits = await searchInQdrant(tenantId, vector, 5);
 
     if (hits.length) {
       context = hits
         .map((hit, index) => `[${index + 1}] (${hit.filename})\n${hit.text}`)
         .join("\n\n");
-      sources = hits.map((hit) => hit.filename).filter((name, i, arr) => arr.indexOf(name) === i);
     }
   } catch (error) {
     fastify.log.warn({ err: error }, "RAG retrieval failed, continuing without context");
@@ -29,16 +36,65 @@ export async function createChatAnswer(fastify, tenantId, question) {
     `Question: ${question}`
   ].join("\n");
 
-  let answer = "";
-  try {
-    answer = await fastify.ollama.chat(prompt);
-  } catch (error) {
-    fastify.log.warn({ err: error }, "Ollama chat failed");
-    answer = error?.message || "Ollama request failed. Check that Ollama is running and the model is installed.";
+  return { prompt, hits };
+}
+
+export async function getOrCreateConversation(fastify, userId, tenantId, conversationId, title) {
+  if (conversationId) {
+    const existing = await fastify.prisma.chatConversation.findFirst({
+      where: { id: conversationId, userId, tenantId }
+    });
+    if (existing) return existing;
   }
 
-  return {
-    answer: answer || `No answer generated for: ${question}`,
-    sources
-  };
+  return fastify.prisma.chatConversation.create({
+    data: {
+      userId,
+      tenantId,
+      title: title?.slice(0, 120) || "New conversation"
+    }
+  });
+}
+
+export async function saveConversationMessage(fastify, data) {
+  return fastify.prisma.chatMessage.create({ data });
+}
+
+export async function streamChatAnswer(fastify, tenantId, question, onToken) {
+  const { prompt, hits } = await buildRagPrompt(fastify, tenantId, question);
+  const sources = normalizeSources(hits);
+
+  const answer = await fastify.ollama.chatStream(prompt, onToken);
+  return { answer: answer || `No answer generated for: ${question}`, sources };
+}
+
+export async function listConversations(fastify, userId, tenantId) {
+  return fastify.prisma.chatConversation.findMany({
+    where: { userId, tenantId },
+    include: {
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: 1
+      }
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 50
+  });
+}
+
+export async function getConversationMessages(fastify, conversationId, userId, tenantId) {
+  const conversation = await fastify.prisma.chatConversation.findFirst({
+    where: { id: conversationId, userId, tenantId },
+    include: {
+      messages: {
+        orderBy: { createdAt: "asc" }
+      }
+    }
+  });
+
+  if (!conversation) {
+    throw fastify.httpErrors.notFound("Conversation not found");
+  }
+
+  return conversation;
 }

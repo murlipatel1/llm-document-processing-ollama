@@ -3,6 +3,7 @@
 import RoleBadge from "./RoleBadge";
 import { clearSession, getSession } from "@/lib/auth";
 import ThemeToggle from "./ThemeToggle";
+import { api } from "@/lib/api";
 
 type NavbarProps = {
   onToggleSidebar: () => void;
@@ -29,9 +30,18 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
         <RoleBadge role={(session?.role as "ADMIN" | "EDITOR" | "VIEWER") || "VIEWER"} />
         <button
           type="button"
-          onClick={() => {
-            clearSession();
-            window.location.href = "/login";
+          onClick={async () => {
+            const refreshToken = session?.refreshToken;
+            try {
+              if (refreshToken) {
+                await api.post("/api/auth/logout", { refreshToken });
+              }
+            } catch {
+              // ignore and clear local session anyway
+            } finally {
+              clearSession();
+              window.location.href = "/login";
+            }
           }}
         >
           Logout
