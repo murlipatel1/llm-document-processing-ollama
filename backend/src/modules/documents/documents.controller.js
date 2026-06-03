@@ -1,4 +1,10 @@
-import { listDocuments, uploadAndCreateDocument } from "./documents.service.js";
+import {
+  listDocuments,
+  getDocumentById,
+  deleteDocument,
+  reprocessDocument,
+  uploadAndCreateDocument
+} from "./documents.service.js";
 
 export async function listDocumentsHandler(request, reply) {
   const items = await listDocuments(this, request.tenantId);
@@ -29,4 +35,19 @@ export async function createDocumentHandler(request, reply) {
   });
 
   return reply.status(201).send(item);
+}
+
+export async function getDocumentHandler(request, reply) {
+  const item = await getDocumentById(this, request.params.id, request.tenantId);
+  return reply.send(item);
+}
+
+export async function deleteDocumentHandler(request, reply) {
+  const result = await deleteDocument(this, request.params.id, request.tenantId);
+  return reply.send(result);
+}
+
+export async function reprocessDocumentHandler(request, reply) {
+  const result = await reprocessDocument(this, request.params.id, request.tenantId);
+  return reply.send(result);
 }

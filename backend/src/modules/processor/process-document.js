@@ -23,7 +23,7 @@ export async function processDocumentJob({ documentId, tenantId }) {
 
   const fileBuffer = await getObjectBuffer(document.minioKey);
   const parsed = await parseDocumentFromBuffer(fileBuffer, document.mimeType);
-  const chunks = splitTextIntoChunks(parsed.text, 800);
+  const chunks = await splitTextIntoChunks(parsed.text, 800);
 
   if (!chunks.length) {
     throw new Error("No text could be extracted from the document");

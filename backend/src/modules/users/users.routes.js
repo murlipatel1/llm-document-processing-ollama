@@ -1,16 +1,35 @@
 import { authenticate } from "../../middleware/authenticate.js";
 import { authorize } from "../../middleware/authorize.js";
 import { tenantScope } from "../../middleware/tenantScope.js";
-import { listUsersHandler } from "./users.controller.js";
-import { listUsersResponseSchema } from "./users.schema.js";
+import { deleteUserHandler, listUsersHandler, updateUserRoleHandler } from "./users.controller.js";
 
 export async function usersRoutes(fastify) {
   fastify.get(
     "/",
+    { preHandler: [authenticate, tenantScope, authorize("ADMIN")] },
+    listUsersHandler.bind(fastify)
+  );
+
+  fastify.patch(
+    "/:id/role",
     {
       preHandler: [authenticate, tenantScope, authorize("ADMIN")],
-      schema: { response: { 200: listUsersResponseSchema } }
+      schema: {
+        body: {
+          type: "object",
+          required: ["role"],
+          properties: {
+            role: { type: "string", enum: ["ADMIN", "EDITOR", "VIEWER"] }
+          }
+        }
+      }
     },
-    listUsersHandler.bind(fastify)
+    updateUserRoleHandler.bind(fastify)
+  );
+
+  fastify.delete(
+    "/:id",
+    { preHandler: [authenticate, tenantScope, authorize("ADMIN")] },
+    deleteUserHandler.bind(fastify)
   );
 }

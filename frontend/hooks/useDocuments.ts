@@ -7,19 +7,22 @@ type DocumentItem = {
   id: string;
   filename: string;
   status: "PENDING" | "PROCESSING" | "READY" | "FAILED";
+  errorMsg?: string | null;
+  chunkCount?: number;
+  createdAt?: string;
 };
 
 export function useDocuments() {
   const [items, setItems] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchDocuments = async () => {
-    setLoading(true);
+  const fetchDocuments = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     try {
       const { data } = await api.get("/api/documents");
       setItems(data.items || []);
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
@@ -27,6 +30,16 @@ export function useDocuments() {
     const formData = new FormData();
     formData.append("file", file);
     await api.post("/api/documents", formData);
+    await fetchDocuments();
+  };
+
+  const deleteDocument = async (documentId: string) => {
+    await api.delete(`/api/documents/${documentId}`);
+    await fetchDocuments();
+  };
+
+  const reprocessDocument = async (documentId: string) => {
+    await api.post(`/api/documents/${documentId}/reprocess`);
     await fetchDocuments();
   };
 
@@ -39,11 +52,11 @@ export function useDocuments() {
     if (!hasActive) return;
 
     const timer = setInterval(() => {
-      fetchDocuments().catch(() => undefined);
+      fetchDocuments({ silent: true }).catch(() => undefined);
     }, 4000);
 
     return () => clearInterval(timer);
   }, [items]);
 
-  return { items, loading, fetchDocuments, uploadDocument };
+  return { items, loading, fetchDocuments, uploadDocument, deleteDocument, reprocessDocument };
 }

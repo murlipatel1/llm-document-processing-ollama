@@ -25,7 +25,7 @@ const envSchema = z.object({
   QDRANT_URL: z.string().url().default("http://localhost:6333"),
   QDRANT_VECTOR_SIZE: z.coerce.number().int().positive().default(768),
   OLLAMA_BASE_URL: z.string().url().default("http://localhost:11434"),
-  OLLAMA_CHAT_MODEL: z.string().default("deepseek-r1:14b"),
+  OLLAMA_CHAT_MODEL: z.string().default("llama3.1:8b"),
   OLLAMA_EMBED_MODEL: z.string().default("nomic-embed-text")
 });
 

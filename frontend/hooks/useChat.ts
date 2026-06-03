@@ -8,6 +8,8 @@ type Message = {
   role: "user" | "assistant";
   text: string;
   sources?: Array<{ documentId?: string; filename?: string; score?: number }>;
+  historyUsed?: boolean;
+  historyCount?: number;
 };
 
 type Conversation = {
@@ -42,6 +44,22 @@ export function useChat() {
     setMessages(data.messages || []);
     setActiveConversationId(conversationId);
     localStorage.setItem(ACTIVE_CONVERSATION_KEY, conversationId);
+  };
+
+  const startNewConversation = () => {
+    setMessages([]);
+    setActiveConversationId(null);
+    localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
+  };
+
+  const deleteConversation = async (conversationId: string) => {
+    await api.delete(`/api/chat/conversations/${conversationId}`);
+
+    if (activeConversationId === conversationId) {
+      startNewConversation();
+    }
+
+    await loadConversations();
   };
 
   const ask = async (question: string) => {
@@ -114,7 +132,9 @@ export function useChat() {
                   next[i] = {
                     ...next[i],
                     text: next[i].text || payload.error || "No answer available.",
-                    sources: payload.sources || []
+                    sources: payload.sources || [],
+                    historyUsed: payload.historyUsed || false,
+                    historyCount: payload.historyCount || 0
                   };
                   break;
                 }
@@ -155,6 +175,8 @@ export function useChat() {
     ask,
     conversations,
     activeConversationId,
-    loadConversation
+    loadConversation,
+    startNewConversation,
+    deleteConversation
   };
 }

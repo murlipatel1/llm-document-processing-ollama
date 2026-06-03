@@ -2,6 +2,7 @@ import { authenticate } from "../../middleware/authenticate.js";
 import { tenantScope } from "../../middleware/tenantScope.js";
 import {
   chatHandler,
+  deleteConversationHandler,
   getConversationHandler,
   listConversationsHandler
 } from "./chat.controller.js";
@@ -35,5 +36,11 @@ export async function chatRoutes(fastify) {
     "/conversations/:id",
     { preHandler: [authenticate, tenantScope] },
     getConversationHandler.bind(fastify)
+  );
+
+  fastify.delete(
+    "/conversations/:id",
+    { preHandler: [authenticate, tenantScope] },
+    deleteConversationHandler.bind(fastify)
   );
 }

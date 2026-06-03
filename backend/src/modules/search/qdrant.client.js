@@ -80,6 +80,25 @@ export async function searchInQdrant(tenantId, queryVector, limit = 5) {
   }));
 }
 
+export async function deletePointsByDocumentId(tenantId, documentId) {
+  const name = collectionName(tenantId);
+
+  try {
+    await qdrantRequest(`/collections/${name}`);
+  } catch {
+    return;
+  }
+
+  await qdrantRequest(`/collections/${name}/points/delete?wait=true`, {
+    method: "POST",
+    body: JSON.stringify({
+      filter: {
+        must: [{ key: "documentId", match: { value: documentId } }]
+      }
+    })
+  });
+}
+
 export function buildPoint({ vector, chunkText, documentId, tenantId, filename, chunkIndex }) {
   return {
     id: randomUUID(),

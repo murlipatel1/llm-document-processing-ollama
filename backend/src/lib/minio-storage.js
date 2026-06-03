@@ -23,6 +23,10 @@ export async function uploadObject(key, buffer, mimeType) {
   });
 }
 
+export async function deleteObject(key) {
+  await minioClient.removeObject(env.MINIO_BUCKET, key);
+}
+
 export async function getObjectBuffer(key) {
   const stream = await minioClient.getObject(env.MINIO_BUCKET, key);
   const chunks = [];

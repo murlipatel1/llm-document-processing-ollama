@@ -1,10 +1,12 @@
 import {
+  deleteConversation,
   getConversationMessages,
   getOrCreateConversation,
   listConversations,
   saveConversationMessage,
   streamChatAnswer
 } from "./chat.service.js";
+import { indexChatTurn } from "./chat-history.qdrant.js";
 
 export async function chatHandler(request, reply) {
   const question = request.body?.question?.trim();
@@ -33,6 +35,9 @@ export async function chatHandler(request, reply) {
     content: question
   });
 
+  const origin = request.headers.origin || "*";
+  reply.raw.setHeader("Access-Control-Allow-Origin", origin);
+  reply.raw.setHeader("Access-Control-Allow-Credentials", "true");
   reply.raw.setHeader("Content-Type", "text/event-stream");
   reply.raw.setHeader("Cache-Control", "no-cache");
   reply.raw.setHeader("Connection", "keep-alive");
@@ -44,25 +49,50 @@ export async function chatHandler(request, reply) {
   };
 
   try {
-    const result = await streamChatAnswer(this, request.tenantId, question, (token) => {
-      fullAnswer += token;
-      sendEvent({ token, done: false, conversationId: conversation.id });
-    });
+    const result = await streamChatAnswer(
+      this,
+      {
+        tenantId: request.tenantId,
+        userId,
+        conversationId: conversation.id,
+        question
+      },
+      (token) => {
+        fullAnswer += token;
+        sendEvent({ token, done: false, conversationId: conversation.id });
+      }
+    );
+
+    const finalAnswer = fullAnswer || result.answer;
 
     await saveConversationMessage(this, {
       conversationId: conversation.id,
       userId,
       tenantId: request.tenantId,
       role: "ASSISTANT",
-      content: fullAnswer || result.answer,
+      content: finalAnswer,
       sources: result.sources
     });
 
     sendEvent({
       done: true,
       conversationId: conversation.id,
-      sources: result.sources
+      sources: result.sources,
+      historyUsed: result.historyUsed,
+      historyCount: result.historyCount
     });
+
+    // Index this Q&A turn for future semantic retrieval — fire and forget
+    if (result.vector?.length) {
+      indexChatTurn({
+        tenantId: request.tenantId,
+        userId,
+        conversationId: conversation.id,
+        question,
+        answer: finalAnswer,
+        vector: result.vector
+      }).catch((err) => this.log.warn({ err }, "Failed to index chat turn"));
+    }
   } catch (error) {
     this.log.warn({ err: error }, "Chat streaming failed");
     sendEvent({
@@ -88,6 +118,12 @@ export async function listConversationsHandler(request, reply) {
       lastMessage: conv.messages[0]?.content || ""
     }))
   });
+}
+
+export async function deleteConversationHandler(request, reply) {
+  const userId = request.user?.sub;
+  const result = await deleteConversation(this, request.params.id, userId, request.tenantId);
+  return reply.send(result);
 }
 
 export async function getConversationHandler(request, reply) {

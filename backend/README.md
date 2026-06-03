@@ -44,11 +44,11 @@ Commands:
 
 ## Local Ollama
 
-- Chat model: `deepseek-r1:14b` (set in `.env`)
+- Chat model: `llama3.1:8b` (set in `.env`)
 - Embedding model: `nomic-embed-text` (required for document indexing)
 
 ```powershell
-ollama pull deepseek-r1:14b
+ollama pull llama3.1:8b
 ollama pull nomic-embed-text
 ```
 
