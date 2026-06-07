@@ -4,6 +4,7 @@ import { ollamaEmbed } from "../../lib/ollama-client.js";
 import { parseDocumentFromBuffer } from "../documents/parser.service.js";
 import { splitTextIntoChunks } from "./chunker.js";
 import { buildPoint, upsertVectors } from "../search/qdrant.client.js";
+import { SUPPORTED_MIME_TYPES, SUPPORTED_MIME_TYPES_LABEL } from "../../config/constants.js";
 
 const prisma = new PrismaClient();
 
@@ -19,6 +20,14 @@ export async function processDocumentJob({ documentId, tenantId }) {
 
   if (!document) {
     throw new Error("Document not found");
+  }
+
+  // Second-line defence: reject unsupported types before downloading the file.
+  // Protects against files that were queued before API-level validation existed.
+  if (!SUPPORTED_MIME_TYPES.has(document.mimeType)) {
+    throw new Error(
+      `Unsupported file type "${document.mimeType}". Supported: ${SUPPORTED_MIME_TYPES_LABEL}`
+    );
   }
 
   const fileBuffer = await getObjectBuffer(document.minioKey);

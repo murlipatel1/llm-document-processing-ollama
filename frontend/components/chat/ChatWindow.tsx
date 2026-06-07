@@ -3,8 +3,10 @@
 import { useEffect, useRef } from "react";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
+import ChatMessagesSkeleton from "./ChatMessagesSkeleton";
 import SourceCitations from "./SourceCitations";
 import ConversationList from "./ConversationList";
+import ConversationListSkeleton from "./ConversationListSkeleton";
 import { useChat } from "@/hooks/useChat";
 
 export default function ChatWindow() {
@@ -12,6 +14,7 @@ export default function ChatWindow() {
     messages,
     sources,
     loading,
+    initialLoading,
     ask,
     conversations,
     activeConversationId,
@@ -36,17 +39,23 @@ export default function ChatWindow() {
       </header>
 
       <div className="chat-layout-body">
-        <ConversationList
-          conversations={conversations}
-          activeConversationId={activeConversationId}
-          onSelect={loadConversation}
-          onDelete={deleteConversation}
-          onNewChat={startNewConversation}
-        />
+        {initialLoading ? (
+          <ConversationListSkeleton />
+        ) : (
+          <ConversationList
+            conversations={conversations}
+            activeConversationId={activeConversationId}
+            onSelect={loadConversation}
+            onDelete={deleteConversation}
+            onNewChat={startNewConversation}
+          />
+        )}
 
         <div className="chat-main">
           <div className="chat-surface">
-            {messages.length ? (
+            {initialLoading ? (
+              <ChatMessagesSkeleton />
+            ) : messages.length ? (
               messages.map((msg, idx) => (
                 <MessageBubble
                   key={`${msg.role}-${idx}`}
@@ -65,7 +74,7 @@ export default function ChatWindow() {
             <div ref={bottomRef} aria-hidden="true" />
           </div>
           <SourceCitations sources={sources} />
-          <ChatInput onSend={ask} loading={loading} />
+          <ChatInput onSend={ask} loading={loading || initialLoading} />
         </div>
       </div>
     </section>

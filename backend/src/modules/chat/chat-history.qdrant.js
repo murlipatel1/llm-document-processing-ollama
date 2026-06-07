@@ -7,6 +7,13 @@ import { env } from "../../config/env.js";
  */
 const HISTORY_MIN_SCORE = 0.82;
 
+/**
+ * Maximum age (in days) of chat-history vectors to retain per user.
+ * Points older than this are deleted after each new turn is indexed.
+ * Override with CHAT_HISTORY_MAX_AGE_DAYS in .env.
+ */
+const HISTORY_MAX_AGE_DAYS = Number(process.env.CHAT_HISTORY_MAX_AGE_DAYS ?? 90);
+
 function chatCollectionName(tenantId) {
   return `chathistory_${tenantId.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
 }
@@ -47,14 +54,48 @@ async function ensureChatCollection(tenantId) {
 }
 
 /**
+ * Delete all chat-history turns for a user that are older than
+ * HISTORY_MAX_AGE_DAYS. Runs fire-and-forget (non-blocking) after each
+ * new turn is indexed.
+ *
+ * Uses a Unix-second `createdAt` field stored in every point payload so
+ * Qdrant's range filter can target stale points directly.
+ */
+async function pruneStaleHistory(tenantId, userId) {
+  const name = chatCollectionName(tenantId);
+  const cutoffSec = Math.floor(Date.now() / 1000) - HISTORY_MAX_AGE_DAYS * 86400;
+
+  try {
+    await qdrantRequest(`/collections/${name}/points/delete?wait=false`, {
+      method: "POST",
+      body: JSON.stringify({
+        filter: {
+          must: [
+            { key: "userId", match: { value: userId } },
+            { key: "createdAt", range: { lt: cutoffSec } }
+          ]
+        }
+      })
+    });
+  } catch {
+    // Pruning is best-effort; log nothing here to avoid noise in the request path.
+  }
+}
+
+/**
  * Index a completed Q&A turn so it can be retrieved in future sessions.
  * The question text is embedded (vector already computed) and stored alongside
  * a truncated answer in the payload.
+ *
+ * Each point is stamped with a `createdAt` Unix timestamp. After indexing,
+ * stale turns (older than HISTORY_MAX_AGE_DAYS) are pruned asynchronously
+ * so the collection never grows unbounded.
  */
 export async function indexChatTurn({ tenantId, userId, conversationId, question, answer, vector }) {
   if (!vector?.length) return;
 
   const name = await ensureChatCollection(tenantId);
+  const createdAt = Math.floor(Date.now() / 1000);
 
   await qdrantRequest(`/collections/${name}/points?wait=false`, {
     method: "PUT",
@@ -68,12 +109,16 @@ export async function indexChatTurn({ tenantId, userId, conversationId, question
             answer: answer.slice(0, 800),
             userId,
             tenantId,
-            conversationId
+            conversationId,
+            createdAt
           }
         }
       ]
     })
   });
+
+  // Non-blocking prune — do not await so the response path is unaffected.
+  pruneStaleHistory(tenantId, userId).catch(() => undefined);
 }
 
 /**

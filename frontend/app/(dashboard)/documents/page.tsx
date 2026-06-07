@@ -3,7 +3,9 @@
 import { useState } from "react";
 import UploadDropzone from "@/components/documents/UploadDropzone";
 import DocumentList from "@/components/documents/DocumentList";
+import DocumentListSkeleton from "@/components/documents/DocumentListSkeleton";
 import DocumentStats from "@/components/documents/DocumentStats";
+import DocumentStatsSkeleton from "@/components/documents/DocumentStatsSkeleton";
 import { useDocuments } from "@/hooks/useDocuments";
 import { getSession } from "@/lib/auth";
 
@@ -44,7 +46,7 @@ export default function DocumentsPage() {
         </button>
       </header>
 
-      <DocumentStats items={items} />
+      {loading && !items.length ? <DocumentStatsSkeleton /> : <DocumentStats items={items} />}
 
       {canEdit ? (
         <UploadDropzone onUpload={uploadDocument} />
@@ -78,10 +80,7 @@ export default function DocumentsPage() {
         </h3>
 
         {loading && !items.length ? (
-          <div className="documents-loading">
-            <span className="upload-spinner" aria-hidden="true" />
-            <p className="subtext">Loading documents…</p>
-          </div>
+          <DocumentListSkeleton />
         ) : (
           <DocumentList
             items={items}

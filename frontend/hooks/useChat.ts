@@ -66,6 +66,7 @@ export function useChat() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const lastAssistantSources = useMemo(() => {
     const last = [...messages].reverse().find((msg) => msg.role === "assistant");
@@ -209,13 +210,15 @@ export function useChat() {
         }
         return Promise.resolve();
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setInitialLoading(false));
   }, []);
 
   return {
     messages,
     sources: lastAssistantSources,
     loading,
+    initialLoading,
     ask,
     conversations,
     activeConversationId,

@@ -26,7 +26,10 @@ const envSchema = z.object({
   QDRANT_VECTOR_SIZE: z.coerce.number().int().positive().default(768),
   OLLAMA_BASE_URL: z.string().url().default("http://localhost:11434"),
   OLLAMA_CHAT_MODEL: z.string().default("llama3.1:8b"),
-  OLLAMA_EMBED_MODEL: z.string().default("nomic-embed-text")
+  OLLAMA_EMBED_MODEL: z.string().default("nomic-embed-text"),
+  // How many documents the worker processes in parallel.
+  // Raise to match available CPU/GPU headroom; keep ≤ 2 on low-memory hosts.
+  WORKER_CONCURRENCY: z.coerce.number().int().positive().default(4)
 });
 
 const parsed = envSchema.safeParse(process.env);

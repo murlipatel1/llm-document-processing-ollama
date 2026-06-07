@@ -1588,3 +1588,134 @@ tbody tr:hover td {
     display: none;
   }
 }
+
+/* Loading skeletons */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--field-bg) 0%,
+    var(--nav-hover) 45%,
+    var(--field-bg) 90%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-doc-card {
+  pointer-events: none;
+}
+
+.skeleton-doc-card:hover {
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.skeleton-doc-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.skeleton-doc-title {
+  height: 0.95rem;
+  width: min(100%, 280px);
+  margin-bottom: 0.35rem;
+}
+
+.skeleton-doc-meta {
+  height: 0.8rem;
+  width: min(100%, 180px);
+}
+
+.skeleton-doc-action {
+  width: 4.5rem;
+  height: 2rem;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.skeleton-stat-value {
+  height: 1.35rem;
+  width: 2.5rem;
+}
+
+.skeleton-stat-label {
+  height: 0.76rem;
+  width: 4.5rem;
+  margin-top: 0.15rem;
+}
+
+.skeleton-conv-subtitle {
+  display: block;
+  height: 0.78rem;
+  width: 7rem;
+  margin-top: 0.2rem;
+}
+
+.skeleton-conv-btn {
+  width: 3.5rem;
+  height: 1.85rem;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.skeleton-conv-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.55rem 0.65rem;
+  pointer-events: none;
+}
+
+.skeleton-conv-title {
+  height: 0.85rem;
+  width: 85%;
+}
+
+.skeleton-conv-preview {
+  height: 0.75rem;
+  width: 100%;
+}
+
+.skeleton-conv-meta {
+  height: 0.7rem;
+  width: 3rem;
+}
+
+.chat-messages-skeleton {
+  min-height: 280px;
+}
+
+.skeleton-message {
+  border-radius: 12px;
+  height: 2.75rem;
+}
+
+.skeleton-message.user {
+  width: 55%;
+}
+
+.skeleton-message.user.short {
+  width: 38%;
+}
+
+.skeleton-message.assistant {
+  width: 72%;
+}
+
+.skeleton-message.assistant.tall {
+  height: 4.5rem;
+  width: 80%;
+}

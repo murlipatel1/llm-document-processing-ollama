@@ -14,7 +14,7 @@ type DocumentItem = {
 
 export function useDocuments() {
   const [items, setItems] = useState<DocumentItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const fetchDocuments = async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true);

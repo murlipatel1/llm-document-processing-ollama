@@ -5,6 +5,7 @@ import {
   reprocessDocument,
   uploadAndCreateDocument
 } from "./documents.service.js";
+import { SUPPORTED_MIME_TYPES, SUPPORTED_MIME_TYPES_LABEL } from "../../config/constants.js";
 
 export async function listDocumentsHandler(request, reply) {
   const items = await listDocuments(this, request.tenantId);
@@ -24,6 +25,12 @@ export async function createDocumentHandler(request, reply) {
 
   if (!buffer.length) {
     throw this.httpErrors.badRequest("Uploaded file is empty");
+  }
+
+  if (!SUPPORTED_MIME_TYPES.has(mimeType)) {
+    throw this.httpErrors.unsupportedMediaType(
+      `Unsupported file type "${mimeType}". Allowed: ${SUPPORTED_MIME_TYPES_LABEL}`
+    );
   }
 
   const item = await uploadAndCreateDocument(this, {

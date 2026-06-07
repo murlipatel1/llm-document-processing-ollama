@@ -1,6 +1,7 @@
 import { Worker } from "bullmq";
 import { createRedisClient } from "../../config/redis.js";
 import { QUEUES } from "../../config/constants.js";
+import { env } from "../../config/env.js";
 import {
   disconnectPrisma,
   markDocumentFailed,
@@ -17,8 +18,10 @@ const worker = new Worker(
     console.log(`Processing document ${documentId} for tenant ${tenantId}`);
     return processDocumentJob({ documentId, tenantId });
   },
-  { connection, concurrency: 1 }
+  { connection, concurrency: env.WORKER_CONCURRENCY }
 );
+
+console.log(`Worker concurrency: ${env.WORKER_CONCURRENCY} (set WORKER_CONCURRENCY in .env to change)`);
 
 worker.on("failed", async (job, err) => {
   console.error(`Job failed: ${job?.id}`, err.message);
