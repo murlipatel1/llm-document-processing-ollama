@@ -2,7 +2,47 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { getSession } from "@/lib/auth";
+import { clearSession, getSession, saveSession } from "@/lib/auth";
+
+/**
+ * Decode a JWT and return its payload (no signature verification — just parsing).
+ */
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  try {
+    return JSON.parse(atob(token.split(".")[1]));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Return a valid accessToken, refreshing proactively if it expires within
+ * 60 seconds. The Axios interceptor in api.ts only fires for Axios requests,
+ * so the raw SSE fetch must handle its own token freshness.
+ */
+async function getFreshAccessToken(): Promise<string> {
+  const session = getSession();
+  if (!session?.accessToken) return "";
+
+  const payload = decodeJwtPayload(session.accessToken);
+  const expiresAt = (payload?.exp ?? 0) * 1000;
+  const isExpiringSoon = expiresAt - Date.now() < 60_000;
+
+  if (isExpiringSoon && session.refreshToken) {
+    try {
+      const { data } = await api.post("/api/auth/refresh", {
+        refreshToken: session.refreshToken
+      });
+      saveSession({ ...session, accessToken: data.accessToken, refreshToken: data.refreshToken });
+      return data.accessToken as string;
+    } catch {
+      clearSession();
+      return "";
+    }
+  }
+
+  return session.accessToken;
+}
 
 type Message = {
   role: "user" | "assistant";
@@ -68,12 +108,12 @@ export function useChat() {
     try {
       setMessages((prev) => [...prev, { role: "assistant", text: "" }]);
 
-      const session = getSession();
+      const accessToken = await getFreshAccessToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.accessToken || ""}`
+          Authorization: `Bearer ${accessToken}`
         },
         body: JSON.stringify({
           question,
@@ -81,8 +121,12 @@ export function useChat() {
         })
       });
 
+      if (response.status === 401) {
+        clearSession();
+        throw new Error("Session expired. Please log in again.");
+      }
       if (!response.ok || !response.body) {
-        throw new Error("Unable to stream chat response");
+        throw new Error(`Chat request failed (${response.status})`);
       }
 
       const reader = response.body.getReader();

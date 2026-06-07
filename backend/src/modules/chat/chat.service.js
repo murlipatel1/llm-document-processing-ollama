@@ -1,6 +1,7 @@
 import { createEmbedding } from "../processor/embedder.js";
 import { searchInQdrant } from "../search/qdrant.client.js";
 import { deleteChatHistoryByConversation, searchChatHistory } from "./chat-history.qdrant.js";
+import { runRagChain } from "./rag.chain.js";
 
 function normalizeSources(hits) {
   return hits.map((hit) => ({
@@ -142,7 +143,7 @@ export async function streamChatAnswer(fastify, { tenantId, userId, conversation
     question
   });
 
-  const answer = await fastify.ollama.chatStream(prompt, onToken);
+  const answer = await runRagChain(fastify, prompt, onToken);
 
   return {
     answer: answer || `No answer generated for: ${question}`,

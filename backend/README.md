@@ -14,8 +14,17 @@ npm run docker:infra
 2. Install dependencies: `npm install`
 3. Generate Prisma client: `npx prisma generate`
 4. Run migrations: `npx prisma migrate dev --name init`
-5. Start API: `npm run dev`
-6. Start document worker (second terminal): `npm run worker`
+5. Start API **and** worker together (recommended):
+   ```powershell
+   npm run dev:all
+   ```
+   This starts both the API server and the document-processing worker in one
+   terminal with colour-coded output (`cyan = api`, `yellow = worker`).
+   If either process crashes the other is stopped automatically.
+
+   Alternatively start them separately:
+   - API only: `npm run dev`
+   - Worker only (second terminal): `npm run worker`
 
 ## Infrastructure
 
@@ -51,6 +60,18 @@ Commands:
 ollama pull llama3.1:8b
 ollama pull nomic-embed-text
 ```
+
+## Re-indexing a tenant
+
+If you change the embedding model or need to rebuild Qdrant vectors for a
+tenant, run the reindex job:
+
+```powershell
+node src/jobs/reindexTenant.js <tenantId>
+```
+
+This resets every non-processing document for that tenant to `PENDING` and
+re-queues them for the worker to re-parse, re-embed, and re-upsert into Qdrant.
 
 ## Default API URLs
 

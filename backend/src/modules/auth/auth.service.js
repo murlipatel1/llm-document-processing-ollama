@@ -1,10 +1,36 @@
 import bcrypt from "bcryptjs";
+import { z } from "zod";
+
+// ---------------------------------------------------------------------------
+// Password-strength schema
+// ---------------------------------------------------------------------------
+const passwordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+  .regex(/\d/, "Password must contain at least one number")
+  .regex(/[^a-zA-Z\d]/, "Password must contain at least one special character");
+
+const registerPayloadSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: passwordSchema,
+  tenantName: z.string().min(2, "Tenant name must be at least 2 characters")
+});
+
+// ---------------------------------------------------------------------------
 
 function createSlug(input) {
   return input.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
 }
 
 export async function registerUser(fastify, payload) {
+  const parsed = registerPayloadSchema.safeParse(payload);
+  if (!parsed.success) {
+    const message = parsed.error.errors.map((e) => e.message).join("; ");
+    throw fastify.httpErrors.badRequest(message);
+  }
+
   const existing = await fastify.prisma.user.findUnique({
     where: { email: payload.email }
   });

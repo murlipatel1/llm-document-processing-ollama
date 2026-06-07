@@ -15,6 +15,9 @@ const ROLES = ["VIEWER", "EDITOR", "ADMIN"] as const;
 export default function UsersPage() {
   const [items, setItems] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<UserRow | null>(null);
+
   const session = getSession();
   const isAdmin = session?.role === "ADMIN";
 
@@ -34,30 +37,98 @@ export default function UsersPage() {
   }, []);
 
   const changeRole = async (userId: string, newRole: string) => {
+    setError(null);
     try {
       await api.patch(`/api/users/${userId}/role`, { role: newRole });
       await fetchUsers();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to update role";
-      alert(msg);
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        "Failed to update role";
+      setError(msg);
     }
   };
 
-  const deleteUser = async (userId: string, email: string) => {
-    if (!confirm(`Permanently delete user ${email}? This cannot be undone.`)) return;
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setError(null);
     try {
-      await api.delete(`/api/users/${userId}`);
+      await api.delete(`/api/users/${pendingDelete.id}`);
+      setPendingDelete(null);
       await fetchUsers();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to delete user";
-      alert(msg);
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        "Failed to delete user";
+      setError(msg);
+      setPendingDelete(null);
     }
   };
 
   return (
     <section className="card">
       <h2 className="page-header">Users</h2>
-      <p className="subtext">Tenant users and access roles.{!isAdmin && " Only admins can manage users."}</p>
+      <p className="subtext">
+        Tenant users and access roles.{!isAdmin && " Only admins can manage users."}
+      </p>
+
+      {error && (
+        <div
+          role="alert"
+          style={{
+            margin: "0.75rem 0",
+            padding: "0.65rem 1rem",
+            borderRadius: "6px",
+            background: "var(--color-danger-bg, #fee2e2)",
+            color: "var(--color-danger, #b91c1c)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "1rem",
+            fontSize: "0.9rem"
+          }}
+        >
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {pendingDelete && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          style={{
+            margin: "0.75rem 0",
+            padding: "0.75rem 1rem",
+            borderRadius: "6px",
+            background: "var(--color-warning-bg, #fef3c7)",
+            color: "var(--color-warning, #92400e)",
+            fontSize: "0.9rem"
+          }}
+        >
+          <p style={{ marginBottom: "0.5rem" }}>
+            Permanently delete <strong>{pendingDelete.email}</strong>? This cannot be undone.
+          </p>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button type="button" className="danger-btn" onClick={confirmDelete}
+              style={{ fontSize: "0.82rem", padding: "0.3rem 0.7rem" }}>
+              Yes, delete
+            </button>
+            <button type="button" onClick={() => setPendingDelete(null)}
+              style={{ fontSize: "0.82rem", padding: "0.3rem 0.7rem" }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <p className="subtext">Loading users...</p>
       ) : (
@@ -95,7 +166,7 @@ export default function UsersPage() {
                         type="button"
                         className="danger-btn"
                         style={{ fontSize: "0.82rem", padding: "0.3rem 0.7rem" }}
-                        onClick={() => deleteUser(user.id, user.email)}
+                        onClick={() => setPendingDelete(user)}
                       >
                         Delete
                       </button>

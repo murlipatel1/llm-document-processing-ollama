@@ -13,9 +13,14 @@ export default function ChatInput({ onSend, loading }: Props) {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmed = question.trim();
-    if (!trimmed) return;
-    await onSend(trimmed);
+    if (!trimmed || loading) return;
+
     setQuestion("");
+    try {
+      await onSend(trimmed);
+    } catch {
+      setQuestion(trimmed);
+    }
   };
 
   return (

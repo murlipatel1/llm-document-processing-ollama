@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
 import SourceCitations from "./SourceCitations";
@@ -18,6 +19,12 @@ export default function ChatWindow() {
     startNewConversation,
     deleteConversation
   } = useChat();
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   return (
     <section className="card chat-layout">
@@ -55,6 +62,7 @@ export default function ChatWindow() {
                 <p className="subtext">Ask a question about your uploaded documents to get started.</p>
               </div>
             )}
+            <div ref={bottomRef} aria-hidden="true" />
           </div>
           <SourceCitations sources={sources} />
           <ChatInput onSend={ask} loading={loading} />

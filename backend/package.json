@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
+    "dev:all": "concurrently --kill-others-on-fail -n api,worker -c cyan,yellow \"npm run dev\" \"npm run worker\"",
     "start": "node src/server.js",
     "worker": "node src/modules/processor/worker.js",
     "docker:up": "docker compose up -d",
@@ -35,6 +36,7 @@
     "zod": "^3.24.4"
   },
   "devDependencies": {
+    "concurrently": "^10.0.3",
     "prisma": "^6.8.2"
   }
 }
