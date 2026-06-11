@@ -33,8 +33,13 @@ export default function LoginPage() {
         role: data.user?.role || "VIEWER"
       });
       router.push("/");
-    } catch {
-      setError("Invalid login credentials.");
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 429) {
+        setError("Too many login attempts. Please wait and try again.");
+      } else {
+        setError("Invalid login credentials.");
+      }
     } finally {
       setLoading(false);
     }

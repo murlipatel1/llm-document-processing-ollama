@@ -1,5 +1,8 @@
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { env } from "../../config/env.js";
+import { signRefreshToken } from "../../lib/jwt-verify.js";
+import { clearFailedLogin, recordFailedLogin } from "../../middleware/authRateLimit.js";
 
 // ---------------------------------------------------------------------------
 // Password-strength schema
@@ -67,26 +70,43 @@ export async function loginUser(fastify, payload) {
   const user = await fastify.prisma.user.findUnique({
     where: { email: payload.email }
   });
-  if (!user) throw fastify.httpErrors.unauthorized("Invalid credentials");
+  if (!user) {
+    await recordFailedLogin(fastify, payload.email);
+    throw fastify.httpErrors.unauthorized("Invalid credentials");
+  }
 
   const validPassword = await bcrypt.compare(payload.password, user.password);
-  if (!validPassword) throw fastify.httpErrors.unauthorized("Invalid credentials");
+  if (!validPassword) {
+    await recordFailedLogin(fastify, payload.email);
+    throw fastify.httpErrors.unauthorized("Invalid credentials");
+  }
 
+  await clearFailedLogin(fastify, payload.email);
   const tokens = await issueTokens(fastify, user);
   return { user: sanitizeUser(user), ...tokens };
+}
+
+function refreshExpiresAt() {
+  const match = env.JWT_REFRESH_EXPIRES.match(/^(\d+)([dhms])$/);
+  if (!match) return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  const amount = Number(match[1]);
+  const unit = match[2];
+  const multipliers = { d: 86400000, h: 3600000, m: 60000, s: 1000 };
+  return new Date(Date.now() + amount * (multipliers[unit] ?? 86400000));
 }
 
 export async function issueTokens(fastify, user) {
   const tokenPayload = { sub: user.id, role: user.role, tenantId: user.tenantId };
 
-  const accessToken = fastify.jwt.sign(tokenPayload, { expiresIn: "15m" });
-  const refreshToken = fastify.jwt.sign(tokenPayload, { expiresIn: "7d" });
+  const accessToken = fastify.jwt.sign(tokenPayload, { expiresIn: env.JWT_ACCESS_EXPIRES });
+  const refreshToken = signRefreshToken(tokenPayload);
 
   await fastify.prisma.refreshToken.create({
     data: {
       token: refreshToken,
       userId: user.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      expiresAt: refreshExpiresAt()
     }
   });
 

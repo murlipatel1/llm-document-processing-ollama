@@ -1,3 +1,5 @@
+import { env } from "../../config/env.js";
+import { verifyRefreshToken } from "../../lib/jwt-verify.js";
 import { loginUser, registerUser, revokeRefreshToken } from "./auth.service.js";
 
 export async function registerHandler(request, reply) {
@@ -21,10 +23,10 @@ export async function refreshHandler(request, reply) {
     return reply.status(401).send({ message: "Refresh token expired" });
   }
 
-  const payload = this.jwt.verify(refreshToken);
+  const payload = verifyRefreshToken(refreshToken);
   const accessToken = this.jwt.sign(
     { sub: payload.sub, role: payload.role, tenantId: payload.tenantId },
-    { expiresIn: "15m" }
+    { expiresIn: env.JWT_ACCESS_EXPIRES }
   );
 
   return reply.send({ accessToken, refreshToken });

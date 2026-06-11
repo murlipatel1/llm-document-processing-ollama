@@ -1,13 +1,31 @@
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
-import { SUPPORTED_MIME_TYPES_LABEL } from "../../config/constants.js";
+import { env } from "../../config/env.js";
+import { SUPPORTED_MIME_TYPES, SUPPORTED_MIME_TYPES_LABEL } from "../../config/constants.js";
+
+function guardExtractedText(text, pages) {
+  if (text.length > env.MAX_EXTRACTED_TEXT_CHARS) {
+    throw new Error(
+      `Extracted text exceeds the ${env.MAX_EXTRACTED_TEXT_CHARS.toLocaleString()}-character limit ` +
+        `(${text.length.toLocaleString()} chars from ${pages || "unknown"} pages). ` +
+        "Split the document or raise MAX_EXTRACTED_TEXT_CHARS."
+    );
+  }
+  return { text, pages };
+}
 
 export async function parseDocumentFromBuffer(buffer, mimeType) {
   const type = (mimeType || "").toLowerCase();
 
+  if (!SUPPORTED_MIME_TYPES.has(mimeType)) {
+    throw new Error(
+      `Cannot parse file with MIME type "${mimeType}". Supported: ${SUPPORTED_MIME_TYPES_LABEL}`
+    );
+  }
+
   if (type.includes("pdf") || type.endsWith(".pdf")) {
     const parsed = await pdfParse(buffer);
-    return { text: parsed.text || "", pages: parsed.numpages || 0 };
+    return guardExtractedText(parsed.text || "", parsed.numpages || 0);
   }
 
   if (
@@ -17,15 +35,13 @@ export async function parseDocumentFromBuffer(buffer, mimeType) {
     type.endsWith(".doc")
   ) {
     const result = await mammoth.extractRawText({ buffer });
-    return { text: result.value || "", pages: 0 };
+    return guardExtractedText(result.value || "", 0);
   }
 
   if (type.includes("text") || type.endsWith(".txt") || type.endsWith(".md")) {
-    return { text: buffer.toString("utf8"), pages: 0 };
+    return guardExtractedText(buffer.toString("utf8"), 0);
   }
 
-  // Throw explicitly so callers receive a clear error instead of binary
-  // garbage silently flowing into the chunker and embedder.
   throw new Error(
     `Cannot parse file with MIME type "${mimeType}". Supported: ${SUPPORTED_MIME_TYPES_LABEL}`
   );

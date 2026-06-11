@@ -7,12 +7,7 @@ import { env } from "../../config/env.js";
  */
 const HISTORY_MIN_SCORE = 0.82;
 
-/**
- * Maximum age (in days) of chat-history vectors to retain per user.
- * Points older than this are deleted after each new turn is indexed.
- * Override with CHAT_HISTORY_MAX_AGE_DAYS in .env.
- */
-const HISTORY_MAX_AGE_DAYS = Number(process.env.CHAT_HISTORY_MAX_AGE_DAYS ?? 90);
+const HISTORY_MAX_AGE_DAYS = env.CHAT_HISTORY_MAX_AGE_DAYS;
 
 function chatCollectionName(tenantId) {
   return `chathistory_${tenantId.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
@@ -61,9 +56,13 @@ async function ensureChatCollection(tenantId) {
  * Uses a Unix-second `createdAt` field stored in every point payload so
  * Qdrant's range filter can target stale points directly.
  */
-async function pruneStaleHistory(tenantId, userId) {
+function staleHistoryCutoffSec() {
+  return Math.floor(Date.now() / 1000) - HISTORY_MAX_AGE_DAYS * 86400;
+}
+
+async function pruneStaleHistory(tenantId, userId, { log } = {}) {
   const name = chatCollectionName(tenantId);
-  const cutoffSec = Math.floor(Date.now() / 1000) - HISTORY_MAX_AGE_DAYS * 86400;
+  const cutoffSec = staleHistoryCutoffSec();
 
   try {
     await qdrantRequest(`/collections/${name}/points/delete?wait=false`, {
@@ -77,9 +76,34 @@ async function pruneStaleHistory(tenantId, userId) {
         }
       })
     });
-  } catch {
-    // Pruning is best-effort; log nothing here to avoid noise in the request path.
+  } catch (err) {
+    log?.warn?.({ err, tenantId, userId }, "Per-user chat history prune failed");
   }
+}
+
+/**
+ * Tenant-wide age prune — catches inactive users who never trigger lazy pruning.
+ */
+export async function pruneStaleHistoryForTenant(tenantId, { log } = {}) {
+  const name = chatCollectionName(tenantId);
+  const cutoffSec = staleHistoryCutoffSec();
+
+  try {
+    await qdrantRequest(`/collections/${name}`);
+  } catch {
+    return;
+  }
+
+  await qdrantRequest(`/collections/${name}/points/delete?wait=true`, {
+    method: "POST",
+    body: JSON.stringify({
+      filter: {
+        must: [{ key: "createdAt", range: { lt: cutoffSec } }]
+      }
+    })
+  });
+
+  log?.info?.({ tenantId, cutoffSec }, "Tenant chat history pruned");
 }
 
 /**

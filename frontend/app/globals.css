@@ -1540,6 +1540,31 @@ tbody tr:hover td {
   font-size: 0.8rem;
 }
 
+.search-empty {
+  margin-top: 0.5rem;
+}
+
+.skeleton-search-item {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.skeleton-search-score {
+  height: 0.75rem;
+  width: 4.5rem;
+  border-radius: 6px;
+}
+
+.skeleton-search-line {
+  height: 0.9rem;
+  width: 100%;
+  border-radius: 6px;
+}
+
+.skeleton-search-line-short {
+  width: 72%;
+}
+
 .sidebar-backdrop {
   position: fixed;
   inset: 0;
