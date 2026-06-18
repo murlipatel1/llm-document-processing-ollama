@@ -5,7 +5,14 @@ import {
   reprocessDocument,
   uploadAndCreateDocument
 } from "./documents.service.js";
+import { getObjectStream, getObjectBuffer } from "../../lib/minio-storage.js";
+import { parseDocumentFromBuffer } from "./parser.service.js";
 import { SUPPORTED_MIME_TYPES, SUPPORTED_MIME_TYPES_LABEL } from "../../config/constants.js";
+
+const PREVIEW_AS_EXTRACTED_TEXT = new Set([
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+]);
 
 export async function listDocumentsHandler(request, reply) {
   const items = await listDocuments(this, request.tenantId);
@@ -57,4 +64,35 @@ export async function deleteDocumentHandler(request, reply) {
 export async function reprocessDocumentHandler(request, reply) {
   const result = await reprocessDocument(this, request.params.id, request.tenantId);
   return reply.send(result);
+}
+
+export async function downloadDocumentHandler(request, reply) {
+  const document = await getDocumentById(this, request.params.id, request.tenantId);
+  const stream = await getObjectStream(document.minioKey);
+  const safeName = document.filename.replace(/["\\]/g, "_");
+  reply.header("Content-Disposition", `attachment; filename="${safeName}"`);
+  reply.header("Content-Type", document.mimeType || "application/octet-stream");
+  reply.header("Cache-Control", "no-store");
+  return reply.send(stream);
+}
+
+export async function previewDocumentHandler(request, reply) {
+  const document = await getDocumentById(this, request.params.id, request.tenantId);
+  const mimeType = document.mimeType || "application/octet-stream";
+  const safeName = document.filename.replace(/["\\]/g, "_");
+
+  if (PREVIEW_AS_EXTRACTED_TEXT.has(mimeType)) {
+    const buffer = await getObjectBuffer(document.minioKey);
+    const { text } = await parseDocumentFromBuffer(buffer, mimeType);
+    reply.header("Content-Type", "text/plain; charset=utf-8");
+    reply.header("Content-Disposition", `inline; filename="${safeName}.txt"`);
+    reply.header("Cache-Control", "no-store");
+    return reply.send(text || "(No extractable text in this document.)");
+  }
+
+  const stream = await getObjectStream(document.minioKey);
+  reply.header("Content-Disposition", `inline; filename="${safeName}"`);
+  reply.header("Content-Type", mimeType);
+  reply.header("Cache-Control", "no-store");
+  return reply.send(stream);
 }

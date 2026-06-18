@@ -12,7 +12,7 @@ import { getSession } from "@/lib/auth";
 const UPLOAD_ROLES = ["ADMIN", "EDITOR"];
 
 export default function DocumentsPage() {
-  const { items, loading, fetchDocuments, uploadDocument, deleteDocument, reprocessDocument } =
+  const { items, loading, fetchDocuments, uploadDocument, deleteDocument, reprocessDocument, downloadDocument, getPreviewUrl } =
     useDocuments();
   const [refreshing, setRefreshing] = useState(false);
   const session = getSession();
@@ -49,7 +49,7 @@ export default function DocumentsPage() {
       {loading && !items.length ? <DocumentStatsSkeleton /> : <DocumentStats items={items} />}
 
       {canEdit ? (
-        <UploadDropzone onUpload={uploadDocument} />
+        <UploadDropzone onUpload={(file, onProgress) => uploadDocument(file, onProgress)} />
       ) : (
         <div className="documents-viewer-notice" role="note">
           <span className="documents-viewer-icon" aria-hidden="true">
@@ -86,6 +86,8 @@ export default function DocumentsPage() {
             items={items}
             onReprocess={reprocessDocument}
             onDelete={deleteDocument}
+            onDownload={downloadDocument}
+            onGetPreviewUrl={getPreviewUrl}
             canEdit={canEdit}
           />
         )}

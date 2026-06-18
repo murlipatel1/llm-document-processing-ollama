@@ -1751,3 +1751,484 @@ tbody tr:hover td {
   height: 4.5rem;
   width: 80%;
 }
+
+/* ─── Upload queue (batch + progress) ─────────────────────────────────── */
+.upload-queue {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.upload-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-soft);
+  font-size: 0.85rem;
+}
+
+.upload-queue-item.is-done {
+  border-color: var(--badge-ready-bg);
+  background: color-mix(in srgb, var(--badge-ready-bg) 30%, transparent);
+}
+
+.upload-queue-item.is-error {
+  border-color: var(--badge-failed-bg);
+  background: color-mix(in srgb, var(--badge-failed-bg) 30%, transparent);
+}
+
+.upload-queue-icon {
+  flex-shrink: 0;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--field-bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.upload-queue-icon.is-done {
+  background: var(--badge-ready-bg);
+  border-color: transparent;
+  color: var(--badge-ready-text);
+}
+
+.upload-queue-icon.is-error {
+  background: var(--badge-failed-bg);
+  border-color: transparent;
+  color: var(--badge-failed-text);
+}
+
+.upload-queue-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.upload-queue-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upload-queue-error {
+  font-size: 0.77rem;
+  color: var(--badge-failed-text);
+}
+
+.upload-queue-done {
+  font-size: 0.77rem;
+  color: var(--badge-ready-text);
+}
+
+.upload-queue-pct {
+  flex-shrink: 0;
+  font-size: 0.77rem;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.upload-progress-bar-wrap {
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.upload-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+  border-radius: 999px;
+  transition: width 0.2s ease;
+  min-width: 4px;
+}
+
+.upload-progress-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: conversation-spin 0.7s linear infinite;
+}
+
+.upload-spinner-sm {
+  width: 14px;
+  height: 14px;
+}
+
+.upload-clear-btn {
+  margin-top: 0.55rem;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.7rem;
+}
+
+/* ─── Document card icon buttons (download / preview) ─────────────────── */
+.doc-icon-btn {
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.doc-icon-btn:hover {
+  color: var(--accent);
+  background: var(--nav-hover);
+  border-color: var(--accent);
+  filter: none;
+}
+
+.doc-icon-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ─── Preview modal ────────────────────────────────────────────────────── */
+.preview-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: var(--backdrop);
+  animation: conversation-fade-in 0.18s ease;
+}
+
+.preview-modal {
+  width: min(100%, 860px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
+  animation: conversation-slide-up 0.22s ease;
+  overflow: hidden;
+}
+
+.preview-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.preview-modal-title {
+  font-weight: 600;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-close-btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.preview-close-btn:hover {
+  color: var(--text);
+  background: var(--nav-hover);
+  filter: none;
+}
+
+.preview-modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.preview-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem;
+  color: var(--muted);
+}
+
+.preview-error {
+  color: var(--danger);
+  text-align: center;
+  padding: 2rem;
+}
+
+.preview-text-content {
+  margin: 0;
+  padding: 0;
+  font-family: "Fira Code", "Consolas", monospace;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
+.preview-pdf-frame {
+  width: 100%;
+  height: 70vh;
+  border: none;
+  border-radius: 8px;
+}
+
+/* ─── Chat error banner ────────────────────────────────────────────────── */
+.chat-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(220, 53, 69, 0.4);
+  background: rgba(220, 53, 69, 0.08);
+  color: var(--danger);
+  font-size: 0.875rem;
+}
+
+.chat-error-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.chat-error-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.chat-error-retry-btn {
+  font-size: 0.8rem;
+  padding: 0.3rem 0.65rem;
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: 7px;
+}
+
+.chat-error-retry-btn:hover {
+  background: rgba(220, 53, 69, 0.12);
+  filter: none;
+}
+
+.chat-error-retry-btn:disabled {
+  opacity: 0.55;
+}
+
+.chat-error-dismiss-btn {
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--danger);
+}
+
+.chat-error-dismiss-btn:hover {
+  background: rgba(220, 53, 69, 0.12);
+  filter: none;
+}
+
+/* ─── Streaming cursor ─────────────────────────────────────────────────── */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: currentColor;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  animation: cursor-blink 0.9s ease infinite;
+}
+
+/* ─── Markdown message rendering ──────────────────────────────────────── */
+.message-md {
+  font-size: inherit;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.message-md > *:first-child { margin-top: 0; }
+.message-md > *:last-child  { margin-bottom: 0; }
+
+.message-md p { margin: 0.5em 0; }
+.message-md h1, .message-md h2, .message-md h3,
+.message-md h4, .message-md h5, .message-md h6 {
+  margin: 0.75em 0 0.35em;
+  line-height: 1.25;
+  font-weight: 700;
+}
+.message-md h1 { font-size: 1.2em; }
+.message-md h2 { font-size: 1.08em; }
+.message-md h3 { font-size: 0.97em; }
+
+.message-md ul, .message-md ol {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
+}
+.message-md li { margin: 0.2em 0; }
+
+.message-md blockquote {
+  margin: 0.5em 0;
+  padding: 0.35em 0.75em;
+  border-left: 3px solid var(--accent);
+  background: rgba(60, 130, 246, 0.07);
+  border-radius: 0 6px 6px 0;
+  color: var(--muted);
+}
+
+.message-md code {
+  font-family: "Fira Code", "Consolas", monospace;
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.message-bubble.user .message-md code {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.message-md pre {
+  margin: 0.6em 0;
+  padding: 0.7em 0.9em;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  overflow-x: auto;
+}
+
+.message-bubble.user .message-md pre {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.message-md pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.82em;
+  line-height: 1.6;
+}
+
+.message-md table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+  margin: 0.5em 0;
+}
+
+.message-md th,
+.message-md td {
+  border: 1px solid var(--bubble-border);
+  padding: 0.3em 0.6em;
+}
+
+.message-md th {
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.message-md a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  opacity: 0.85;
+}
+
+.message-md a:hover { opacity: 1; }
+
+.message-md hr {
+  border: none;
+  border-top: 1px solid var(--bubble-border);
+  margin: 0.75em 0;
+}
+
+/* ─── Source citations — clickable download ───────────────────────────── */
+.sources-item.is-clickable {
+  cursor: default;
+}
+
+.sources-item-right {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.sources-download-btn {
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.sources-download-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--nav-hover);
+  filter: none;
+}
+
+.sources-download-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sources-error {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: var(--danger);
+}

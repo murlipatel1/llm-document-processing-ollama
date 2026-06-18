@@ -4,8 +4,10 @@ import { tenantScope } from "../../middleware/tenantScope.js";
 import {
   createDocumentHandler,
   deleteDocumentHandler,
+  downloadDocumentHandler,
   getDocumentHandler,
   listDocumentsHandler,
+  previewDocumentHandler,
   reprocessDocumentHandler
 } from "./documents.controller.js";
 
@@ -30,5 +32,17 @@ export async function documentsRoutes(fastify) {
     "/:id/reprocess",
     { preHandler: [authenticate, tenantScope] },
     reprocessDocumentHandler.bind(fastify)
+  );
+
+  fastify.get(
+    "/:id/download",
+    { preHandler: [authenticate, tenantScope] },
+    downloadDocumentHandler.bind(fastify)
+  );
+
+  fastify.get(
+    "/:id/preview",
+    { preHandler: [authenticate, tenantScope] },
+    previewDocumentHandler.bind(fastify)
   );
 }

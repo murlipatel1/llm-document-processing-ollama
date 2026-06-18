@@ -37,3 +37,7 @@ export async function getObjectBuffer(key) {
     stream.on("error", reject);
   });
 }
+
+export async function getObjectStream(key) {
+  return minioClient.getObject(env.MINIO_BUCKET, key);
+}
