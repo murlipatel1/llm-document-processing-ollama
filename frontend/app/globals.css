@@ -512,7 +512,7 @@ tbody tr:hover td {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 0.85rem;
-  align-items: center;
+  align-items: flex-start;
   padding: 0.85rem 1rem;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -540,6 +540,7 @@ tbody tr:hover td {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  align-self: center;
 }
 
 .doc-card-ext {
@@ -556,9 +557,7 @@ tbody tr:hover td {
 .doc-card-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.65rem;
-  flex-wrap: wrap;
 }
 
 .doc-card-title {
@@ -568,7 +567,7 @@ tbody tr:hover td {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: min(100%, 420px);
+  max-width: 100%;
 }
 
 .doc-card-meta {
@@ -593,6 +592,7 @@ tbody tr:hover td {
   align-items: center;
   gap: 0.4rem;
   flex-shrink: 0;
+  align-self: center;
 }
 
 .doc-action-btn {
@@ -774,6 +774,7 @@ tbody tr:hover td {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  line-height: 1;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -783,7 +784,13 @@ tbody tr:hover td {
   height: 6px;
   border-radius: 50%;
   background: currentColor;
+  flex-shrink: 0;
   animation: status-pulse 1.2s ease-in-out infinite;
+}
+
+.status-badge-dot.is-hidden {
+  visibility: hidden;
+  animation: none;
 }
 
 @keyframes status-pulse {

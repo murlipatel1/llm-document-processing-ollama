@@ -134,7 +134,6 @@ export default function DocumentList({ items, onReprocess, onDelete, canEdit }: 
                   <h3 className="doc-card-title" title={item.filename}>
                     {item.filename}
                   </h3>
-                  <ProcessingBadge status={item.status} />
                 </div>
 
                 <p className="doc-card-meta">
@@ -166,15 +165,7 @@ export default function DocumentList({ items, onReprocess, onDelete, canEdit }: 
                     {isReprocessing ? "Starting…" : item.status === "FAILED" ? "Retry" : "Process"}
                   </button>
                 )}
-                {item.status === "PROCESSING" && (
-                  <span className="doc-processing-label">
-                    <span className="upload-spinner doc-processing-spinner" aria-hidden="true" />
-                    Processing
-                  </span>
-                )}
-                {item.status === "READY" && (
-                  <span className="doc-ready-label">Indexed</span>
-                )}
+                <ProcessingBadge status={item.status} />
                 {canEdit && (
                   <button
                     type="button"
