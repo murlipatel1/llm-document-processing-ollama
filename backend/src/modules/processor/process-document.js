@@ -5,6 +5,7 @@ import { parseDocumentFromBuffer } from "../documents/parser.service.js";
 import { splitTextIntoChunks } from "./chunker.js";
 import { buildPoint, upsertVectors } from "../search/qdrant.client.js";
 import { SUPPORTED_MIME_TYPES, SUPPORTED_MIME_TYPES_LABEL } from "../../config/constants.js";
+import { generateSummary } from "./summarizer.js";
 
 const prisma = new PrismaClient();
 
@@ -62,12 +63,20 @@ export async function processDocumentJob({ documentId, tenantId }) {
 
   await upsertVectors(tenantId, points);
 
+  // Generate summary — failure is non-fatal; we still mark the document READY.
+  let summary = null;
+  try {
+    summary = await generateSummary(parsed.text);
+  } catch (err) {
+    console.warn(`Summary generation skipped for ${documentId}:`, err.message);
+  }
+
   await prisma.document.update({
     where: { id: documentId },
-    data: { status: "READY", chunkCount: chunks.length, errorMsg: null }
+    data: { status: "READY", chunkCount: chunks.length, errorMsg: null, summary }
   });
 
-  return { chunkCount: chunks.length };
+  return { chunkCount: chunks.length, hasSummary: summary !== null };
 }
 
 export async function markDocumentFailed(documentId, errorMsg) {

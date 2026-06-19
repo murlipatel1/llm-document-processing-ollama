@@ -601,6 +601,45 @@ tbody tr:hover td {
   white-space: nowrap;
 }
 
+/* Document summary (expandable row spanning all 3 grid columns) */
+.doc-card-summary-row {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.doc-summary-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 0;
+  line-height: 1.4;
+  transition: opacity 0.15s ease;
+}
+
+.doc-summary-toggle:hover {
+  opacity: 0.8;
+}
+
+.doc-summary-toggle-icon {
+  font-size: 0.75rem;
+}
+
+.doc-summary-text {
+  margin: 0.5rem 0 0.1rem;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
 .doc-processing-label,
 .doc-ready-label {
   font-size: 0.82rem;

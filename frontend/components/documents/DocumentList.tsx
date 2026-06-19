@@ -10,6 +10,7 @@ type DocumentItem = {
   status: "PENDING" | "PROCESSING" | "READY" | "FAILED";
   errorMsg?: string | null;
   chunkCount?: number;
+  summary?: string | null;
   createdAt?: string;
 };
 
@@ -117,7 +118,17 @@ export default function DocumentList({ items, onReprocess, onDelete, onDownload,
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [expandedSummaries, setExpandedSummaries] = useState<Set<string>>(new Set());
   const previewBlobRef = useRef<string | null>(null);
+
+  const toggleSummary = (id: string) => {
+    setExpandedSummaries((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!pendingDelete) return;
@@ -256,6 +267,25 @@ export default function DocumentList({ items, onReprocess, onDelete, onDownload,
                   <p className="doc-card-error">{item.errorMsg}</p>
                 ) : null}
               </div>
+
+              {item.summary && item.status === "READY" && (
+                <div className="doc-card-summary-row">
+                  <button
+                    type="button"
+                    className="doc-summary-toggle"
+                    onClick={() => toggleSummary(item.id)}
+                    aria-expanded={expandedSummaries.has(item.id)}
+                  >
+                    <span className="doc-summary-toggle-icon" aria-hidden="true">
+                      {expandedSummaries.has(item.id) ? "▾" : "▸"}
+                    </span>
+                    {expandedSummaries.has(item.id) ? "Hide summary" : "View summary"}
+                  </button>
+                  {expandedSummaries.has(item.id) && (
+                    <p className="doc-summary-text">{item.summary}</p>
+                  )}
+                </div>
+              )}
 
               <div className="doc-card-actions">
                 {(item.status === "PENDING" || item.status === "FAILED") && (

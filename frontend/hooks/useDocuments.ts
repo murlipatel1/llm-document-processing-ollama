@@ -11,6 +11,7 @@ export type DocumentItem = {
   status: "PENDING" | "PROCESSING" | "READY" | "FAILED";
   errorMsg?: string | null;
   chunkCount?: number;
+  summary?: string | null;
   createdAt?: string;
 };
 
