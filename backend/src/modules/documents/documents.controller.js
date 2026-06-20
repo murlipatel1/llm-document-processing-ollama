@@ -5,6 +5,7 @@ import {
   reprocessDocument,
   uploadAndCreateDocument
 } from "./documents.service.js";
+import { buildDocumentGraph } from "./graph.service.js";
 import { getObjectStream, getObjectBuffer } from "../../lib/minio-storage.js";
 import { parseDocumentFromBuffer } from "./parser.service.js";
 import { SUPPORTED_MIME_TYPES, SUPPORTED_MIME_TYPES_LABEL } from "../../config/constants.js";
@@ -17,6 +18,21 @@ const PREVIEW_AS_EXTRACTED_TEXT = new Set([
 export async function listDocumentsHandler(request, reply) {
   const items = await listDocuments(this, request.tenantId);
   return reply.send({ items });
+}
+
+export async function graphDocumentsHandler(request, reply) {
+  const rawThreshold = parseFloat(request.query?.threshold ?? "0.6");
+  const rawMaxNodes = parseInt(request.query?.maxNodes ?? "50", 10);
+
+  const threshold = Number.isFinite(rawThreshold)
+    ? Math.min(0.99, Math.max(0.1, rawThreshold))
+    : 0.6;
+  const maxNodes = Number.isFinite(rawMaxNodes)
+    ? Math.min(100, Math.max(1, rawMaxNodes))
+    : 50;
+
+  const graph = await buildDocumentGraph(this, request.tenantId, { threshold, maxNodes });
+  return reply.send(graph);
 }
 
 export async function createDocumentHandler(request, reply) {

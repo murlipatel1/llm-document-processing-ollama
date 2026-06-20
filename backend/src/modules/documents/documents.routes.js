@@ -6,6 +6,7 @@ import {
   deleteDocumentHandler,
   downloadDocumentHandler,
   getDocumentHandler,
+  graphDocumentsHandler,
   listDocumentsHandler,
   previewDocumentHandler,
   reprocessDocumentHandler
@@ -13,6 +14,9 @@ import {
 
 export async function documentsRoutes(fastify) {
   fastify.get("/", { preHandler: [authenticate, tenantScope] }, listDocumentsHandler.bind(fastify));
+
+  // /graph must be declared before /:id so Fastify does not treat "graph" as a document ID
+  fastify.get("/graph", { preHandler: [authenticate, tenantScope] }, graphDocumentsHandler.bind(fastify));
 
   fastify.get("/:id", { preHandler: [authenticate, tenantScope] }, getDocumentHandler.bind(fastify));
 

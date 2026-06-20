@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
 import ChatMessagesSkeleton from "./ChatMessagesSkeleton";
@@ -32,6 +33,9 @@ function XSmallIcon() {
 }
 
 export default function ChatWindow() {
+  const searchParams = useSearchParams();
+  const prefillQuestion = searchParams.get("q") ?? "";
+
   const {
     messages,
     sources,
@@ -115,7 +119,7 @@ export default function ChatWindow() {
             <div ref={bottomRef} aria-hidden="true" />
           </div>
           <SourceCitations sources={sources} />
-          <ChatInput onSend={ask} loading={loading || initialLoading} />
+          <ChatInput onSend={ask} loading={loading || initialLoading} initialValue={prefillQuestion} />
         </div>
       </div>
     </section>

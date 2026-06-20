@@ -5,10 +5,11 @@ import { FormEvent, useState } from "react";
 type Props = {
   onSend: (question: string) => Promise<void>;
   loading: boolean;
+  initialValue?: string;
 };
 
-export default function ChatInput({ onSend, loading }: Props) {
-  const [question, setQuestion] = useState("");
+export default function ChatInput({ onSend, loading, initialValue = "" }: Props) {
+  const [question, setQuestion] = useState(initialValue);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
