@@ -25,6 +25,9 @@
 16. [Getting Started](#16-getting-started)
 17. [Environment Variables](#17-environment-variables)
 18. [Resume Highlights](#18-resume-highlights)
+19. [Knowledge Graph](#19-knowledge-graph)
+20. [Manual Setup — PostgreSQL & Ollama](#20-manual-setup--postgresql--ollama)
+21. [Remaining Development](#21-remaining-development)
 
 ---
 
@@ -61,7 +64,8 @@ Employee asks:  "How does the payment service work?"
 | Document Upload | PDF, DOCX, plain text — drag and drop |
 | Semantic Search | Find docs by meaning, not exact keywords |
 | Chat with Docs | Ask questions, get AI answers with source citations |
-| Summarization | Auto-summarize uploaded documents |
+| Summarization | Auto-summarize uploaded documents (`Document.summary`) |
+| Knowledge Graph | Interactive map of documents, chunks, and shared topics |
 | Multi-Tenant | Each company/org has fully isolated data |
 | RBAC | Admin / Editor / Viewer role enforcement |
 | Audit Logs | Every action logged — who did what, when |
@@ -281,6 +285,10 @@ enterprise-kb/
 │   │   │       │   └── page.tsx    # Upload + list documents
 │   │   │       ├── search/
 │   │   │       │   └── page.tsx    # Semantic search UI
+│   │   │       ├── graph/
+│   │   │       │   └── page.tsx    # Knowledge graph visualization
+│   │   │       ├── chat/
+│   │   │       │   └── page.tsx    # Chat + conversation history
 │   │   │       ├── users/
 │   │   │       │   └── page.tsx    # Admin: user management
 │   │   │       └── audit/
@@ -298,6 +306,10 @@ enterprise-kb/
 │   │   │   ├── search/
 │   │   │   │   ├── SearchBar.tsx
 │   │   │   │   └── SearchResult.tsx
+│   │   │   ├── graph/
+│   │   │   │   ├── KnowledgeGraph.tsx    # Force-directed graph canvas
+│   │   │   │   ├── NodePanel.tsx         # Selected node detail panel
+│   │   │   │   └── GraphHints.tsx
 │   │   │   └── layout/
 │   │   │       ├── Sidebar.tsx
 │   │   │       ├── Navbar.tsx
@@ -309,7 +321,8 @@ enterprise-kb/
 │   │   ├── hooks/
 │   │   │   ├── useChat.ts          # Chat state + SSE stream hook
 │   │   │   ├── useDocuments.ts     # Document list + upload hook
-│   │   │   └── useSearch.ts        # Semantic search hook
+│   │   │   ├── useSearch.ts        # Semantic search hook
+│   │   │   └── useGraph.ts         # Knowledge graph data hook
 │   │   ├── tailwind.config.ts
 │   │   ├── next.config.js
 │   │   └── package.json
@@ -327,7 +340,8 @@ enterprise-kb/
 │       │   │   ├── documents/
 │       │   │   │   ├── documents.controller.js
 │       │   │   │   ├── documents.service.js    # MinIO upload, Prisma write
-│       │   │   │   └── parser.service.js       # pdf-parse + mammoth
+│       │   │   │   ├── parser.service.js       # pdf-parse + mammoth
+│       │   │   │   └── graph.service.js        # Knowledge graph builder
 │       │   │   ├── processor/
 │       │   │   │   ├── processor.worker.js     # BullMQ worker entry point
 │       │   │   │   ├── chunker.js              # RecursiveCharacterTextSplitter
@@ -402,7 +416,8 @@ apps/backend/
 │   │   │   ├── documents.routes.js
 │   │   │   ├── documents.controller.js
 │   │   │   ├── documents.service.js
-│   │   │   └── parser.service.js
+│   │   │   ├── parser.service.js
+│   │   │   └── graph.service.js
 │   │   ├── processor/
 │   │   │   ├── queue.js              # BullMQ queue producer
 │   │   │   ├── worker.js             # background job consumer
@@ -424,18 +439,16 @@ apps/backend/
 │   │       └── audit.hook.js
 │   │
 │   ├── jobs/
-│   │   └── reindexTenant.js          # manual re-index command script
+│   │   ├── reindexTenant.js          # manual re-index command script
+│   │   └── pruneChatHistory.js       # prune stale chat-history vectors
 │   ├── utils/
 │   │   ├── crypto.js
 │   │   ├── pagination.js
 │   │   └── sse.js
-│   └── tests/
-│       ├── integration/
-│       └── unit/
+│   └── modules/chat/chat-history.qdrant.js  # long-term chat memory in Qdrant
 │
 ├── prisma/
 │   ├── schema.prisma
-│   ├── migrations/
 │   └── seed.js
 ├── scripts/
 │   ├── dev.sh                        # local start helpers
@@ -448,13 +461,14 @@ apps/backend/
 
 **Run order (backend)**
 
-```bash
-# from repo root
+```powershell
+# from apps/backend (PostgreSQL + Ollama must already be running — see Section 20)
 cd apps/backend
 npm install
+npm run docker:infra
 npx prisma generate
-npx prisma migrate dev --name init
-npm run dev
+npx prisma db push
+npm run dev:all
 ```
 
 ---
@@ -476,28 +490,33 @@ datasource db {
 // ─── Tenant (org isolation) ─────────────────────────────────────
 
 model Tenant {
-  id        String     @id @default(cuid())
-  name      String
-  slug      String     @unique         // used in Qdrant collection name
-  users     User[]
-  documents Document[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String             @id @default(cuid())
+  name          String
+  slug          String             @unique         // used in Qdrant collection name
+  users         User[]
+  documents     Document[]
+  auditLogs     AuditLog[]
+  conversations ChatConversation[]
+  chatMessages  ChatMessage[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 }
 
 // ─── User ────────────────────────────────────────────────────────
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  password     String                  // bcrypt hash
-  role         Role       @default(VIEWER)
-  tenantId     String
-  tenant       Tenant     @relation(fields: [tenantId], references: [id])
-  auditLogs    AuditLog[]
+  id            String             @id @default(cuid())
+  email         String             @unique
+  password      String                              // bcrypt hash
+  role          Role               @default(VIEWER)
+  tenantId      String
+  tenant        Tenant             @relation(fields: [tenantId], references: [id])
+  auditLogs     AuditLog[]
   refreshTokens RefreshToken[]
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  conversations ChatConversation[]
+  chatMessages  ChatMessage[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 }
 
 enum Role {
@@ -529,9 +548,13 @@ model Document {
   tenant     Tenant    @relation(fields: [tenantId], references: [id])
   uploadedBy String                    // userId
   chunkCount Int       @default(0)     // set after processing
+  summary    String?                   // LLM-generated summary (2–4 sentences)
   errorMsg   String?                   // populated on FAILED
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
 }
 
 enum DocStatus {
@@ -548,12 +571,56 @@ model AuditLog {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
   action    String                     // e.g. "document.upload", "chat.query"
   resource  String                     // e.g. document ID or "chat"
   metadata  Json?                      // extra context (filename, query text)
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([createdAt(sort: Desc)])
+}
+
+// ─── Chat Conversation ───────────────────────────────────────────
+
+model ChatConversation {
+  id        String        @id @default(cuid())
+  userId    String
+  tenantId  String
+  title     String?                       // optional label (first question snippet)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([tenantId])
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  userId         String
+  tenantId       String
+  role           ChatRole
+  content        String
+  sources        Json?            // retrieved doc citations for assistant turns
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
 }
 ```
 
@@ -598,10 +665,36 @@ CREATE TABLE documents (
   tenant_id TEXT NOT NULL REFERENCES tenants(id),
   uploaded_by TEXT NOT NULL,
   chunk_count INTEGER NOT NULL DEFAULT 0,
+  summary TEXT,
   error_msg TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TYPE chat_role AS ENUM ('USER', 'ASSISTANT');
+
+CREATE TABLE chat_conversations (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  title TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE chat_messages (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  role chat_role NOT NULL,
+  content TEXT NOT NULL,
+  sources JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_chat_conversations_user_id ON chat_conversations(user_id, created_at DESC);
+CREATE INDEX idx_chat_messages_conversation_id ON chat_messages(conversation_id, created_at);
 
 CREATE TABLE audit_logs (
   id TEXT PRIMARY KEY,
@@ -662,7 +755,12 @@ POST /api/documents/upload
 
 GET /api/documents/:id
   Auth: viewer+
-  Returns: { document }
+  Returns: { document } — includes summary when status is READY
+
+GET /api/documents/graph
+  Auth: viewer+
+  Query: ?threshold=0.6&maxNodes=50
+  Returns: { nodes: [...], edges: [...], stats: { documentCount, topicCount } }
 
 DELETE /api/documents/:id
   Auth: editor+ (own docs) | admin (any)
@@ -675,8 +773,9 @@ DELETE /api/documents/:id
 ```
 POST /api/chat
   Auth: viewer+
-  Body: { query: string, conversationId?: string }
+  Body: { question: string, conversationId?: string }
   Response: text/event-stream (SSE)
+  Side effects: persists USER + ASSISTANT rows in ChatMessage; optional title on ChatConversation
   Events:
     data: { token: "The", done: false }
     data: { token: " payment", done: false }
@@ -987,9 +1086,17 @@ export async function embedChunks(chunks) {
 }
 ```
 
+### Document Summarization
+
+After chunking and embedding, the worker calls Ollama to produce a **2–4 sentence summary** of the extracted text. The result is stored on `Document.summary`. Summarization failure is non-fatal — the document still reaches `READY` status.
+
+The frontend Documents page exposes summaries via an expandable **View summary** row on each ready document card.
+
 ---
 
 ## 12. Chat & Streaming
+
+Chat messages are persisted in PostgreSQL via **`ChatConversation`** and **`ChatMessage`**. Each SSE turn stores a `USER` row and an `ASSISTANT` row (with optional `sources` JSON). Related past Q&A is also indexed in Qdrant for long-term memory across sessions.
 
 ### RAG Chain (LangChain.js)
 
@@ -1178,31 +1285,32 @@ function deriveAction(method, url) {
 
 ## 14. Docker Services
 
+The repo ships **`apps/backend/docker-compose.yml`** for the three queue/storage services the API worker depends on at runtime:
+
+| Service | In `docker-compose.yml` | Port | Purpose |
+|---|---|---|---|
+| Redis | Yes | 6379 | BullMQ job queue |
+| MinIO | Yes | 9000 / 9001 | File blob storage |
+| Qdrant | Yes | 6333 / 6334 | Vector search |
+| PostgreSQL | **Manual setup** | 5432 | Relational metadata (users, docs, chat, audit) |
+| Ollama | **Manual setup** | 11434 | LLM chat + embeddings |
+
+Start the Docker-managed services from `apps/backend`:
+
+```powershell
+cd apps/backend
+npm run docker:infra
+# equivalent: docker compose up -d redis minio qdrant
+```
+
+**PostgreSQL and Ollama are not included in this compose file.** Install and run them on the host (or in your own containers) — see [Section 20 — Manual Setup](#20-manual-setup--postgresql--ollama).
+
+Reference compose file (Redis, MinIO, Qdrant only — as shipped):
+
 ```yaml
-# docker-compose.yml
+# apps/backend/docker-compose.yml (reference — Redis, MinIO, Qdrant)
 
 services:
-
-  postgres:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: enterprise_kb
-      POSTGRES_USER: kb_user
-      POSTGRES_PASSWORD: kb_pass
-    ports:
-      - "5432:5432"
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-
-  qdrant:
-    image: qdrant/qdrant:latest
-    restart: unless-stopped
-    ports:
-      - "6333:6333"   # REST API
-      - "6334:6334"   # gRPC
-    volumes:
-      - qdrant_storage:/qdrant/storage
 
   redis:
     image: redis:7-alpine
@@ -1226,6 +1334,38 @@ services:
     volumes:
       - minio_data:/data
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # REST API
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+volumes:
+  redis_data:
+  minio_data:
+  qdrant_storage:
+```
+
+Optional — run PostgreSQL and Ollama in Docker yourself (not in the shipped compose file):
+
+```yaml
+# add to your local override or a separate compose file
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: enterprise_kb
+      POSTGRES_USER: kb_user
+      POSTGRES_PASSWORD: kb_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
   ollama:
     image: ollama/ollama
     restart: unless-stopped
@@ -1244,9 +1384,6 @@ services:
 
 volumes:
   pg_data:
-  qdrant_storage:
-  redis_data:
-  minio_data:
   ollama_models:
 ```
 
@@ -1337,37 +1474,66 @@ cd apps/frontend && npm install && cd ../..
 
 ### Step 2 — Configure environment
 
-```bash
-cp .env.example .env
-# Edit .env with your values (see section 17)
+```powershell
+cd apps/backend
+Copy-Item .env.example .env
+# Edit .env — see Section 17 (DATABASE_URL, Ollama model names, JWT secrets)
+
+cd ../frontend
+Copy-Item .env.local.example .env.local
 ```
 
-### Step 3 — Start infrastructure
+### Step 3 — PostgreSQL (manual)
 
-```bash
-docker compose up -d
+Install PostgreSQL 17 locally, or run it in Docker (see [Section 20](#20-manual-setup--postgresql--ollama)).
 
-# Verify all 5 services are running:
+Create the database and user to match `DATABASE_URL` in `.env`:
+
+```sql
+CREATE USER kb_user WITH PASSWORD 'kb_pass';
+CREATE DATABASE enterprise_kb OWNER kb_user;
+```
+
+Apply the schema:
+
+```powershell
+cd apps/backend
+npx prisma generate
+npx prisma db push
+# optional seed: npx prisma db seed
+```
+
+### Step 4 — Ollama (manual)
+
+Install [Ollama](https://ollama.com) on the host and pull the models referenced in `.env`:
+
+```powershell
+ollama pull llama3.1:8b
+ollama pull nomic-embed-text
+```
+
+Verify Ollama is listening at `http://localhost:11434`.
+
+### Step 5 — Start Docker infrastructure (Redis, MinIO, Qdrant)
+
+```powershell
+cd apps/backend
+npm run docker:infra
+
+# Verify three containers are running:
 docker compose ps
 ```
 
-### Step 4 — Pull Ollama models
+### Step 6 — Pull Ollama models (Docker install only)
 
-```bash
-# This takes a few minutes on first run
-docker exec -it enterprise-kb-ollama-1 ollama pull llama3.3
-docker exec -it enterprise-kb-ollama-1 ollama pull nomic-embed-text
+Skip this step if you installed Ollama on the host in Step 4. If Ollama runs in Docker:
+
+```powershell
+docker exec -it <ollama-container-name> ollama pull llama3.1:8b
+docker exec -it <ollama-container-name> ollama pull nomic-embed-text
 ```
 
-### Step 5 — Run database migrations
-
-```bash
-cd apps/backend
-npx prisma migrate dev --name init
-npx prisma generate
-```
-
-### Step 6 — Create MinIO bucket
+### Step 7 — Create MinIO bucket
 
 ```bash
 # Open MinIO console at http://localhost:9001
@@ -1375,29 +1541,31 @@ npx prisma generate
 # Create bucket: "documents"
 ```
 
-### Step 7 — Start the backend
+### Step 8 — Start the backend
 
-```bash
+```powershell
 cd apps/backend
-npm run dev
-# Runs on http://localhost:3001
+npm run dev:all
+# Starts API (port 3001) and document-processing worker together
 ```
 
-### Step 8 — Start the frontend
+### Step 9 — Start the frontend
 
-```bash
+```powershell
 cd apps/frontend
 npm run dev
 # Runs on http://localhost:3000
 ```
 
-### Step 9 — Register and test
+### Step 10 — Register and test
 
 1. Open `http://localhost:3000/register`
-2. Create an account (first user becomes Admin automatically)
+2. Create an account (first user in a new tenant becomes Admin)
 3. Upload a PDF from the Documents page
-4. Wait for status to change to **READY** (~10-30 seconds)
-5. Go to Chat and ask a question about the document
+4. Wait for status to change to **READY** (~10–30 seconds)
+5. Expand **View summary** on the document card (if summarization succeeded)
+6. Go to **Chat** and ask a question about the document
+7. Open **Knowledge Graph** to explore document ↔ topic relationships
 
 ---
 
@@ -1430,7 +1598,7 @@ QDRANT_URL="http://localhost:6333"
 
 # Ollama
 OLLAMA_BASE_URL="http://localhost:11434"
-OLLAMA_LLM_MODEL="llama3.3"
+OLLAMA_CHAT_MODEL="llama3.1:8b"
 OLLAMA_EMBED_MODEL="nomic-embed-text"
 
 # App
@@ -1461,10 +1629,164 @@ This project demonstrates the following skills interviewers look for:
 | **RBAC** | Role guard middleware factory — Admin / Editor / Viewer hierarchy |
 | **Streaming AI** | Server-Sent Events for real-time token-by-token LLM output |
 | **Audit Compliance** | Immutable append-only action log — satisfies SOC2/GDPR audit requirements |
-| **Document Processing** | Binary file → text → structured chunks → searchable vectors |
+| **Document Processing** | Binary file → text → structured chunks → searchable vectors + optional summary |
+| **Knowledge Graph** | Document/chunk/topic nodes with similarity edges — interactive 2D visualization |
 | **Full-Stack JS** | Next.js App Router + Fastify API + Prisma ORM — all JavaScript |
-| **Infrastructure** | Docker Compose orchestrating 5 services — production-like local setup |
+| **Infrastructure** | Docker Compose for Redis/MinIO/Qdrant; PostgreSQL + Ollama run manually on host |
 | **API Design** | RESTful endpoints with proper HTTP verbs, status codes, pagination |
+
+---
+
+## 19. Knowledge Graph
+
+The Knowledge Graph visualizes how indexed documents relate to each other through **shared topics** extracted from chunk text and document summaries.
+
+### What it shows
+
+| Node type | Description |
+|---|---|
+| `document` | One node per `READY` document (label = filename, includes `summary`) |
+| `chunk` | Representative text chunks linked to their parent document |
+| `topic` | Shared phrases/keywords that appear across multiple documents |
+
+| Edge type | Description |
+|---|---|
+| `contains` | Document → chunk ownership |
+| `mentions` | Document or chunk → shared topic (weighted by relevance) |
+| `related` | Document ↔ document when topic overlap exceeds `threshold` |
+
+### Backend — `graph.service.js`
+
+```
+GET /api/documents/graph?threshold=0.6&maxNodes=50
+        │
+        ▼
+  Load READY documents for tenant (Postgres)
+        │
+        ▼
+  For each document: scroll Qdrant chunks + read Document.summary
+        │
+        ▼
+  Extract phrases/keywords → build topic index
+        │
+        ▼
+  Emit { nodes[], edges[], stats } for force-graph rendering
+```
+
+Query parameters:
+
+- `threshold` (0.1–0.99, default `0.6`) — minimum topic overlap to draw a document–document edge
+- `maxNodes` (1–100, default `50`) — cap total nodes returned
+
+### Frontend — `/graph`
+
+- **`KnowledgeGraph.tsx`** — `react-force-graph-2d` canvas; click nodes to inspect details
+- **`NodePanel.tsx`** — side panel showing filename, summary, chunk text, or topic metadata
+- **`useGraph.ts`** — fetches graph payload and manages loading/error state
+
+The graph page is linked from the dashboard sidebar as **Knowledge Graph**.
+
+---
+
+## 20. Manual Setup — PostgreSQL & Ollama
+
+PostgreSQL and Ollama are **required** but intentionally **outside** `apps/backend/docker-compose.yml`. Run them on the host or in your own containers.
+
+### PostgreSQL
+
+**Option A — Local install (Windows / macOS / Linux)**
+
+1. Install PostgreSQL 17 from [postgresql.org](https://www.postgresql.org/download/) or your package manager.
+2. Create database and user (match `DATABASE_URL` in `apps/backend/.env`):
+
+```sql
+CREATE USER kb_user WITH PASSWORD 'kb_pass';
+CREATE DATABASE enterprise_kb OWNER kb_user;
+```
+
+3. Apply schema:
+
+```powershell
+cd apps/backend
+npx prisma generate
+npx prisma db push
+```
+
+**Option B — Docker (standalone container)**
+
+```powershell
+docker run -d --name enterprise-kb-postgres `
+  -e POSTGRES_DB=enterprise_kb `
+  -e POSTGRES_USER=kb_user `
+  -e POSTGRES_PASSWORD=kb_pass `
+  -p 5432:5432 `
+  -v pg_data:/var/lib/postgresql/data `
+  postgres:17-alpine
+```
+
+Then run `npx prisma db push` from `apps/backend`.
+
+**Verify:** `psql postgresql://kb_user:kb_pass@localhost:5432/enterprise_kb -c "\dt"`
+
+### Ollama
+
+**Option A — Host install (recommended for GPU access)**
+
+1. Download from [ollama.com](https://ollama.com) and start the Ollama service.
+2. Pull models (names must match `OLLAMA_CHAT_MODEL` and `OLLAMA_EMBED_MODEL` in `.env`):
+
+```powershell
+ollama pull llama3.1:8b
+ollama pull nomic-embed-text
+```
+
+3. Confirm the API responds:
+
+```powershell
+curl http://localhost:11434/api/tags
+```
+
+**Option B — Docker**
+
+```powershell
+docker run -d --name enterprise-kb-ollama `
+  -p 11434:11434 `
+  -v ollama_models:/root/.ollama `
+  ollama/ollama
+
+docker exec -it enterprise-kb-ollama ollama pull llama3.1:8b
+docker exec -it enterprise-kb-ollama ollama pull nomic-embed-text
+```
+
+Set `OLLAMA_BASE_URL=http://localhost:11434` in `apps/backend/.env`.
+
+### Startup order
+
+```
+1. PostgreSQL  →  prisma db push
+2. Ollama      →  pull chat + embed models
+3. Docker infra →  npm run docker:infra  (Redis, MinIO, Qdrant)
+4. MinIO bucket →  create "documents" at http://localhost:9001
+5. Backend     →  npm run dev:all  (API + worker)
+6. Frontend    →  npm run dev
+```
+
+---
+
+## 21. Remaining Development
+
+Items still worth tackling (core RAG flow is already implemented):
+
+| Priority | Item | Notes |
+|---|---|---|
+| High | Root monorepo docs | Add root `README.md` + `.env.example` pointing to `apps/backend` and `apps/frontend` |
+| High | API pagination & filters | `GET /api/documents` status/page filters; richer audit log query params |
+| Medium | RBAC polish | Editor deletes own docs only; hide Users/Audit sidebar links for non-admins |
+| Medium | Search API | Optional `threshold` filter; align query param naming with frontend |
+| Low | Doc ↔ code alignment | Package versions in this file vs `package.json`; optional full LangChain chain |
+| Low | `ENTERPRISE_KB.md` upkeep | Keep schema, API paths, and infra steps in sync as features evolve |
+
+**Explicitly out of scope for now:** committed Prisma migration history and automated test suites.
 
 ---
 
