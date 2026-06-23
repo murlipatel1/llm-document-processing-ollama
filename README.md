@@ -1064,6 +1064,7 @@ export async function chunkText(text, { chunkSize = 500, chunkOverlap = 50 } = {
   return docs.map((d) => d.pageContent);
 }
 ```
+<img width="1918" height="560" alt="image" src="https://github.com/user-attachments/assets/1b8ac12f-f28d-4d4f-960e-144f4552193e" />
 
 ### Embedder (Ollama)
 
@@ -1086,9 +1087,14 @@ export async function embedChunks(chunks) {
 }
 ```
 
+<img width="1918" height="802" alt="image" src="https://github.com/user-attachments/assets/5ab008ff-ad1e-44ce-b6ce-43e46f29e639" />
+
+
 ### Document Summarization
 
 After chunking and embedding, the worker calls Ollama to produce a **2–4 sentence summary** of the extracted text. The result is stored on `Document.summary`. Summarization failure is non-fatal — the document still reaches `READY` status.
+
+<img width="1918" height="671" alt="image" src="https://github.com/user-attachments/assets/38852e4b-ac6c-4419-9d7c-24ea8fb0d9f5" />
 
 The frontend Documents page exposes summaries via an expandable **View summary** row on each ready document card.
 
@@ -1159,6 +1165,7 @@ export async function runRAGChain({ tenantId, query, onToken }) {
   return retrievedDocs.map((d) => d.metadata);  // source citations
 }
 ```
+<img width="1918" height="851" alt="image" src="https://github.com/user-attachments/assets/095a6631-bea2-427b-beae-0a5f172ff857" />
 
 ### SSE Controller
 
@@ -1280,6 +1287,7 @@ function deriveAction(method, url) {
   return null;
 }
 ```
+<img width="1918" height="713" alt="image" src="https://github.com/user-attachments/assets/cf435f0c-576e-4448-9cf7-43671e00d30b" />
 
 ---
 
